@@ -4,6 +4,4 @@ services:
     env: docker
     plan: free
     healthCheckPath: /
-    envVars:
-      - key: PORT
-        value: 8000
+         
