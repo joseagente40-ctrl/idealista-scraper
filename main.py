@@ -28,10 +28,10 @@ CORS(app)
 # Diccionario de ciudades disponibles para scraping
 CIUDADES_ESPANA = {
     'madrid': 'https://www.idealista.com/venta-viviendas/madrid-madrid/con-particulares/',
-    'barcelona': 'https://www.idealista.com/venta-viviendas/barcelona-barcelona/con-particulares/',
+    'valladolid': 'https://www.idealista.com/venta-viviendas/valladolid-valladolid/con-particulares/',
     'valencia': 'https://www.idealista.com/venta-viviendas/valencia-valencia/con-particulares/',
     'sevilla': 'https://www.idealista.com/venta-viviendas/sevilla-sevilla/con-particulares/',
-    'zaragoza': 'https://www.idealista.com/venta-viviendas/zaragoza-zaragoza/con-particulares/',
+    'leon': 'https://www.idealista.com/venta-viviendas/leon-leon/con-particulares/',
     'malaga': 'https://www.idealista.com/venta-viviendas/malaga-malaga/con-particulares/',
     'bilbao': 'https://www.idealista.com/venta-viviendas/bilbao/con-particulares/',
     'alicante': 'https://www.idealista.com/venta-viviendas/alicante-alicante/con-particulares/',
