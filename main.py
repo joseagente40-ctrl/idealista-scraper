@@ -128,8 +128,7 @@ def fetch_realista_data(pages: int = 1):
             break
     return resultados
 
-140
-    , methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({
         'status': 'ok',
@@ -140,10 +139,6 @@ def health_check():
 @app.route('/api/idealista/espana/particulares', methods=['GET'])
 @app.route('/api/idealista/madrid/particulares', methods=['GET'])  # Alias para compatibilidad
 @app.route('/api/idealista/<city>/particulares', methods=['GET'])  # Endpoint dinámico
-def get_particulares_espan(city='madrid')():   
-    try:
-        # Obtener ciudad del parámetro query
-        # Obtener ciudad: primero del query param, luego del path param
                 city = request.args.get('city', city).lower()
                     
                 base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
