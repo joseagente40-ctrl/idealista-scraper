@@ -49,7 +49,7 @@ def build_search_url(base_url: str, page: int = 1) -> str:
     """Construye URL de búsqueda para una ciudad y página"""
     if page <= 1:
         return base_url
-    return f"{base_url}pagina-{page}.htm"    req = urllib.request.Request(url, headers=HEADERS)
+    return f"{base_url}pagina-{page}.htm"
     with urllib.request.urlopen(req, timeout=25) as resp:
         html = resp.read().decode("utf-8", errors="ignore")
 
