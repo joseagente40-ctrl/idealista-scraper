@@ -24,8 +24,20 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-'https://www.idealista.com/venta-viviendas/con-particulares/'
+# Diccionario de ciudades disponibles para scraping
+CIUDADES_ESPANA = {
+    'madrid': 'https://www.idealista.com/venta-viviendas/madrid-madrid/con-particulares/',
+    'barcelona': 'https://www.idealista.com/venta-viviendas/barcelona-barcelona/con-particulares/',
+    'valencia': 'https://www.idealista.com/venta-viviendas/valencia-valencia/con-particulares/',
+    'sevilla': 'https://www.idealista.com/venta-viviendas/sevilla-sevilla/con-particulares/',
+    'zaragoza': 'https://www.idealista.com/venta-viviendas/zaragoza-zaragoza/con-particulares/',
+    'malaga': 'https://www.idealista.com/venta-viviendas/malaga-malaga/con-particulares/',
+    'bilbao': 'https://www.idealista.com/venta-viviendas/bilbao/con-particulares/',
+    'alicante': 'https://www.idealista.com/venta-viviendas/alicante-alicante/con-particulares/',
+}
 
+# URL por defecto (Madrid)
+IDEALISTA_BASE_URL = CIUDADES_ESPANA['madrid']
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -33,15 +45,11 @@ HEADERS = {
     'Connection': 'keep-alive',
 }
 
-def build_search_url(page: int = 1) -> str:
+def build_search_url(base_url: str, page: int = 1) -> str:
+    """Construye URL de búsqueda para una ciudad y página"""
     if page <= 1:
-        return IDEALISTA_BASE_URL
-        return f"{IDEALISTA_BASE_URL}pagina-{page}.htm"
-
-def scrape_idealista_page(page: int = 1):
-    url = build_search_url(page)
-    logger.info(f"Scrapeando Idealista: {url}")
-    req = urllib.request.Request(url, headers=HEADERS)
+        return base_url
+    return f"{base_url}pagina-{page}.htm"    req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=25) as resp:
         html = resp.read().decode("utf-8", errors="ignore")
 
