@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-IDEALISTA_BASE_URL = 'https://www.idealista.com/venta-viviendas/madrid-madrid/'
+'https://www.idealista.com/venta-viviendas/madrid-madrid/con-particulares/'
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -36,7 +36,7 @@ HEADERS = {
 def build_search_url(page: int = 1) -> str:
     if page <= 1:
         return IDEALISTA_BASE_URL
-    return f"{IDEALISTA_BASE_URL}pagina-{page}.htm"
+        return f"{IDEALISTA_BASE_URL}pagina-{page}.htm"
 
 def scrape_idealista_page(page: int = 1):
     url = build_search_url(page)
