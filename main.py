@@ -50,6 +50,12 @@ def build_search_url(base_url: str, page: int = 1) -> str:
     if page <= 1:
         return base_url
     return f"{base_url}pagina-{page}.htm"
+
+def scrape_idealista_page(base_url: str, page: int = 1) -> list:
+        """Extrae listados de una página de Idealista"""
+        search_url = build_search_url(base_url, page)
+        req = urllib.request.Request(search_url, headers=HEADERS)
+    
     with urllib.request.urlopen(req, timeout=25) as resp:
         html = resp.read().decode("utf-8", errors="ignore")
 
@@ -117,11 +123,11 @@ def build_search_url(base_url: str, page: int = 1) -> str:
     logger.info(f"Encontradas {len(listings)} propiedades particulares en página {page}")
     return listings
 
-def fetch_realista_data(pages: int = 1):
+def fetch_realista_data(base_url: str, pages: int = 1):
     resultados = []
     for p in range(1, pages + 1):
         try:
-            page_data = scrape_idealista_page(p)
+                        page_data = scrape_idealista_page(base_url, p)
             resultados.extend(page_data)
         except Exception as e:
             logger.error(f"Error scrapendo página {p}: {e}")
@@ -149,8 +155,13 @@ def get_particulares(city='madrid'):
         habitaciones = request.args.get('habitaciones')
         pages_to_scrape = int(request.args.get('pages_to_scrape', 1))
 
-        data = fetch_realista_data(pages=pages_to_scrape)
+            data = fetch_realista_data(base_url, pages=pages_to_scrape)
 
+
+    # Filtros opcionales
+               min_price = int(request.args.get('min_price', 0))
+    max_price = int(request.args.get('max_price', 10000000))
+    location = request.args.get('location', '').lower()
         filtered = data
         if min_price > 0:
             filtered = [p for p in filtered if int(p['precio']) >= min_price]
