@@ -57,7 +57,7 @@ def scrape_idealista_page(base_url: str, page: int = 1) -> list:
         search_url = build_search_url(base_url, page)
         req = urllib.request.Request(search_url, headers=HEADERS)
     
-    with urllib.request.urlopen(req, timeout=25) as resp:
+        with urllib.request.urlopen(req, timeout=25) as resp:
         html = resp.read().decode("utf-8", errors="ignore")
 
     soup = BeautifulSoup(html, "html.parser")
@@ -204,4 +204,4 @@ def get_particulares(city='madrid'):
 if __name__ == "__main__":
     
 
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
