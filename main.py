@@ -128,7 +128,8 @@ def fetch_realista_data(pages: int = 1):
             break
     return resultados
 
-@app.route('/health', methods=['GET'])
+140
+    , methods=['GET'])
 def health_check():
     return jsonify({
         'status': 'ok',
@@ -136,23 +137,16 @@ def health_check():
         'service': 'Idealista Scraper API'
     }), 200
 
-@app.route('', methods=['GET'])
-def get_particulares_espana():
-    try:
-        page = int(request.args.get('page', 1))
-        @app.route('/api/idealista/espana/particulares', methods=['GET'])
-        limit = min(limit, 50)
-
-        # Alias endpoint para compatibilidad con versiones anteriores
-@app.route('/api/idealista/madrid/particulares', methods=['GET'])
-def get_particulares_madrid():
-    return get_particulares_espana()
-
-def get_particulares_espana():   
+@app.route('/api/idealista/espana/particulares', methods=['GET'])
+@app.route('/api/idealista/madrid/particulares', methods=['GET'])  # Alias para compatibilidad
+@app.route('/api/idealista/<city>/particulares', methods=['GET'])  # Endpoint dinámico
+def get_particulares_espan(city='madrid')():   
     try:
         # Obtener ciudad del parámetro query
-        city = request.args.get('city', 'madrid').lower()
-        base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
+        # Obtener ciudad: primero del query param, luego del path param
+                city = request.args.get('city', city).lower()
+                    
+                base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
         city_name = city.capitalize()
         
         page = int(request.args.get('page', 1))
@@ -202,3 +196,4 @@ def get_particulares_espana():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
+138
