@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 SERVIDOR IDEALISTA PARA N8N
-Endpoint HTTP para scraping de particulares en Madrid
+Endpoint HTTP para scraping de particulares en toda España
 Compatible con N8N HTTP Request Node
 """
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-'https://www.idealista.com/venta-viviendas/madrid-madrid/con-particulares/'
+'https://www.idealista.com/venta-viviendas/con-particulares/'
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -128,11 +128,11 @@ def health_check():
         'service': 'Idealista Scraper API'
     }), 200
 
-@app.route('/api/idealista/madrid/particulares', methods=['GET'])
-def get_particulares_madrid():
+@app.route('', methods=['GET'])
+def get_particulares_espana():
     try:
         page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 10))
+        @app.route('/api/idealista/espana/particulares', methods=['GET'])
         limit = min(limit, 50)
 
         min_price = int(request.args.get('min_price', 0))
@@ -162,8 +162,7 @@ def get_particulares_madrid():
         return jsonify({
             'success': True,
             'timestamp': datetime.now().isoformat(),
-            'location': 'Madrid',
-            'seller_type': 'Particular',
+            'location': 'España',
             'pagination': {
                 'page': page,
                 'limit': limit,
