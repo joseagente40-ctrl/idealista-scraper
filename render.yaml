@@ -3,5 +3,5 @@ services:
     name: idealista-scraper
     env: docker
     plan: free
-    healthCheckPath: /
+        healthCheckPath: /health
          
