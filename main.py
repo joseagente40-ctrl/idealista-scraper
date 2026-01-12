@@ -148,9 +148,15 @@ def get_particulares_espana():
 def get_particulares_madrid():
     return get_particulares_espana()
 
-        min_price = int(request.args.get('min_price', 0))
-        max_price = int(request.args.get('max_price', 10000000))
-        location = request.args.get('location', '').lower()
+def get_particulares_espana():   
+    try:
+        # Obtener ciudad del parámetro query
+        city = request.args.get('city', 'madrid').lower()
+        base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
+        city_name = city.capitalize()
+        
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 10))
         habitaciones = request.args.get('habitaciones')
         pages_to_scrape = int(request.args.get('pages_to_scrape', 1))
 
@@ -175,8 +181,7 @@ def get_particulares_madrid():
         return jsonify({
             'success': True,
             'timestamp': datetime.now().isoformat(),
-            'location': 'España',
-            'pagination': {
+            'location': city_name,            'pagination': {
                 'page': page,
                 'limit': limit,
                 'total': total,
