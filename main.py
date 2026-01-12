@@ -135,6 +135,11 @@ def get_particulares_espana():
         @app.route('/api/idealista/espana/particulares', methods=['GET'])
         limit = min(limit, 50)
 
+        # Alias endpoint para compatibilidad con versiones anteriores
+@app.route('/api/idealista/madrid/particulares', methods=['GET'])
+def get_particulares_madrid():
+    return get_particulares_espana()
+
         min_price = int(request.args.get('min_price', 0))
         max_price = int(request.args.get('max_price', 10000000))
         location = request.args.get('location', '').lower()
