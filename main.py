@@ -139,6 +139,7 @@ def health_check():
 @app.route('/api/idealista/espana/particulares', methods=['GET'])
 @app.route('/api/idealista/madrid/particulares', methods=['GET'])  # Alias para compatibilidad
 @app.route('/api/idealista/<city>/particulares', methods=['GET'])  # Endpoint dinámico
+def get_particulares(city='madrid'):
                 city = request.args.get('city', city).lower()
                     
                 base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
