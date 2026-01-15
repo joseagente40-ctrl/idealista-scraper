@@ -58,7 +58,7 @@ def scrape_idealista_page(base_url: str, page: int = 1) -> list:
         req = urllib.request.Request(search_url, headers=HEADERS)
         with urllib.request.urlopen(req, timeout=25) as resp:
         html = resp.read().decode("utf-8", errors="ignore")
-
+                soup = BeautifulSoup(html, "html.parser")
     listings = []
     for article in soup.find_all("article", class_="item"):
         seller_type = "Particular"
