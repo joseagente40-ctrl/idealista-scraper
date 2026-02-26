@@ -5,7 +5,6 @@ SERVIDOR IDEALISTA PARA N8N
 Endpoint HTTP para scraping de particulares en toda España
 Compatible con N8N HTTP Request Node
 """
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import urllib.request
@@ -47,63 +46,53 @@ HEADERS = {
 }
 
 def build_search_url(base_url: str, page: int = 1) -> str:
-    """Construye URL de búsqueda para una ciudad y página"""
+    """Construye URL de busqueda para una ciudad y pagina"""
     if page <= 1:
         return base_url
     return f"{base_url}pagina-{page}.htm"
 
 def scrape_idealista_page(base_url: str, page: int = 1) -> list:
-        """Extrae listados de una página de Idealista"""
-        search_url = build_search_url(base_url, page)
-        req = urllib.request.Request(search_url, headers=HEADERS)
-        with urllib.request.urlopen(req, timeout=25) as resp:
-            html = resp.read().decode("utf-8", errors="ignore")
-                    soup = BeautifulSoup(html, "html.parser")
-        listings = []
-        for article in soup.find_all("article", class_="item"):
+    """Extrae listados de una pagina de Idealista"""
+    search_url = build_search_url(base_url, page)
+    req = urllib.request.Request(search_url, headers=HEADERS)
+    with urllib.request.urlopen(req, timeout=25) as resp:
+        html = resp.read().decode("utf-8", errors="ignore")
+    soup = BeautifulSoup(html, "html.parser")
+    listings = []
+    for article in soup.find_all("article", class_="item"):
         seller_type = "Particular"
         extra_info = article.select_one(".item-extra-info, .item-subtitle")
         if extra_info:
             extra_text = extra_info.get_text(strip=True)
             if re.search(r"agencia|inmobiliaria", extra_text, re.I):
                 seller_type = "Agencia"
-
         title_el = article.select_one("a.item-link")
         price_el = article.select_one(".item-price span, span.item-price")
         details_els = article.select("span.item-detail")
         location_el = article.select_one(".item-location")
         date_el = article.select_one(".item-date")
-
         url_rel = title_el["href"] if title_el and title_el.has_attr("href") else None
         if url_rel and not url_rel.startswith("http"):
             url_abs = urllib.parse.urljoin("https://www.idealista.com", url_rel)
         else:
             url_abs = url_rel
-
         id_match = re.search(r"/inmueble/(\d+)/", url_abs or "")
         prop_id = id_match.group(1) if id_match else None
-
         price_raw = price_el.get_text(strip=True) if price_el else ""
         price_num = re.sub(r"[^\d]", "", price_raw) or "0"
-
         hab = 0
         ban = 0
         metros = 0
         for d in details_els:
             txt = d.get_text(" ", strip=True)
             m_hab = re.search(r"(\d+)\s*habs?", txt, re.I)
-            m_ban = re.search(r"(\d+)\s*bañ", txt, re.I)
-            m_m2 = re.search(r"(\d+)\s*m²?", txt, re.I)
-            if m_hab:
-                hab = int(m_hab.group(1))
-            if m_ban:
-                ban = int(m_ban.group(1))
-            if m_m2:
-                metros = int(m_m2.group(1))
-
+            m_ban = re.search(r"(\d+)\s*ban", txt, re.I)
+            m_m2 = re.search(r"(\d+)\s*m", txt, re.I)
+            if m_hab: hab = int(m_hab.group(1))
+            if m_ban: ban = int(m_ban.group(1))
+            if m_m2: metros = int(m_m2.group(1))
         location = location_el.get_text(" ", strip=True) if location_el else ""
         fecha_pub = date_el.get_text(strip=True) if date_el else None
-
         listings.append({
             "id": prop_id,
             "titulo": title_el.get_text(strip=True) if title_el else "",
@@ -116,19 +105,18 @@ def scrape_idealista_page(base_url: str, page: int = 1) -> list:
             "fecha_publicacion": fecha_pub,
             "url": url_abs,
         })
-
     listings = [l for l in listings if l["tipo_vendedor"].lower() == "particular"]
-    logger.info(f"Encontradas {len(listings)} propiedades particulares en página {page}")
+    logger.info(f"Encontradas {len(listings)} propiedades particulares en pagina {page}")
     return listings
 
 def fetch_realista_data(base_url: str, pages: int = 1):
     resultados = []
     for p in range(1, pages + 1):
         try:
-                        page_data = scrape_idealista_page(base_url, p)
+            page_data = scrape_idealista_page(base_url, p)
             resultados.extend(page_data)
         except Exception as e:
-            logger.error(f"Error scrapendo página {p}: {e}")
+            logger.error(f"Error scrapendo pagina {p}: {e}")
             break
     return resultados
 
@@ -142,27 +130,22 @@ def health_check():
 
 @app.route('/api/idealista/espana/particulares', methods=['GET'])
 @app.route('/api/idealista/madrid/particulares', methods=['GET'])  # Alias para compatibilidad
-@app.route('/api/idealista/<city>/particulares', methods=['GET'])  # Endpoint dinámico
+@app.route('/api/idealista/<city>/particulares', methods=['GET'])  # Endpoint dinamico
 def get_particulares(city='madrid'):
-        try:
-                    # Obtener ciudad: primero del query param, luego del path param
+    try:
+        # Obtener ciudad: primero del query param, luego del path param
         city = request.args.get('city', city).lower()
-
-            base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
+        base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
         city_name = city.capitalize()
-
-       page = int(request.args.get('page', 1))
+        page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 10))
         habitaciones = request.args.get('habitaciones')
         pages_to_scrape = int(request.args.get('pages_to_scrape', 1))
-
-            data = fetch_realista_data(base_url, pages=pages_to_scrape)
-
-
-    # Filtros opcionales
-               min_price = int(request.args.get('min_price', 0))
-    max_price = int(request.args.get('max_price', 10000000))
-    location = request.args.get('location', '').lower()
+        data = fetch_realista_data(base_url, pages=pages_to_scrape)
+        # Filtros opcionales
+        min_price = int(request.args.get('min_price', 0))
+        max_price = int(request.args.get('max_price', 10000000))
+        location = request.args.get('location', '').lower()
         filtered = data
         if min_price > 0:
             filtered = [p for p in filtered if int(p['precio']) >= min_price]
@@ -173,16 +156,15 @@ def get_particulares(city='madrid'):
         if habitaciones:
             hab = int(habitaciones)
             filtered = [p for p in filtered if p['habitaciones'] == hab]
-
         total = len(filtered)
         start = (page - 1) * limit
         end = start + limit
         results = filtered[start:end]
-
         return jsonify({
             'success': True,
             'timestamp': datetime.now().isoformat(),
-            'location': city_name,            'pagination': {
+            'location': city_name,
+            'pagination': {
                 'page': page,
                 'limit': limit,
                 'total': total,
@@ -192,7 +174,6 @@ def get_particulares(city='madrid'):
             'data': results,
             'count': len(results)
         }), 200
-
     except Exception as e:
         logger.error(f"Error en endpoint: {e}")
         return jsonify({
@@ -202,4 +183,4 @@ def get_particulares(city='madrid'):
         }), 500
 
 if __name__ == "__main__":
-        app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
