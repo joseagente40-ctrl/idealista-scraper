@@ -38,12 +38,55 @@ CIUDADES_ESPANA = {
 
 # URL por defecto (Madrid)
 IDEALISTA_BASE_URL = CIUDADES_ESPANA['madrid']
+
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Accept-Language': 'es-ES,es;q=0.9',
     'Connection': 'keep-alive',
 }
+
+def scrape_contact_data(property_url: str) -> dict:
+    """
+    Extrae telefono y email de la ficha del inmueble.
+    OJO: los selectores son orientativos, deberás ajustarlos a Idealista real.
+    """
+    try:
+        req = urllib.request.Request(property_url, headers=HEADERS)
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        logger.error(f"Error descargando detalle {property_url}: {e}")
+        return {"telefono": None, "email": None}
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    telefono = None
+    email = None
+
+    # 1) Telefonos tipo <a href="tel:...">
+    tel_el = soup.find("a", href=re.compile(r"tel:"))
+    if tel_el and tel_el.get("href"):
+        tel_href = tel_el.get("href")
+        telefono = re.sub(r"[^\d]", "", tel_href)
+
+    # 2) Email tipo <a href="mailto:...">
+    mail_el = soup.find("a", href=re.compile(r"mailto:", re.I))
+    if mail_el and mail_el.get("href"):
+        email = mail_el.get("href").replace("mailto:", "").strip()
+
+    # 3) Fallback: regex en HTML completo
+    if not telefono:
+        tel_match = re.search(r"(?:\+34)?\s?(\d{3}\s?\d{2}\s?\d{2}\s?\d{2})", html)
+        if tel_match:
+            telefono = re.sub(r"\s+", "", tel_match.group(1))
+
+    if not email:
+        email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", html)
+        if email_match:
+            email = email_match.group(0)
+
+    return {"telefono": telefono, "email": email}
 
 def build_search_url(base_url: str, page: int = 1) -> str:
     """Construye URL de busqueda para una ciudad y pagina"""
@@ -57,29 +100,37 @@ def scrape_idealista_page(base_url: str, page: int = 1) -> list:
     req = urllib.request.Request(search_url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=25) as resp:
         html = resp.read().decode("utf-8", errors="ignore")
+
     soup = BeautifulSoup(html, "html.parser")
     listings = []
+
     for article in soup.find_all("article", class_="item"):
         seller_type = "Particular"
+
         extra_info = article.select_one(".item-extra-info, .item-subtitle")
         if extra_info:
             extra_text = extra_info.get_text(strip=True)
             if re.search(r"agencia|inmobiliaria", extra_text, re.I):
                 seller_type = "Agencia"
+
         title_el = article.select_one("a.item-link")
         price_el = article.select_one(".item-price span, span.item-price")
         details_els = article.select("span.item-detail")
         location_el = article.select_one(".item-location")
         date_el = article.select_one(".item-date")
+
         url_rel = title_el["href"] if title_el and title_el.has_attr("href") else None
         if url_rel and not url_rel.startswith("http"):
             url_abs = urllib.parse.urljoin("https://www.idealista.com", url_rel)
         else:
             url_abs = url_rel
+
         id_match = re.search(r"/inmueble/(\d+)/", url_abs or "")
         prop_id = id_match.group(1) if id_match else None
+
         price_raw = price_el.get_text(strip=True) if price_el else ""
         price_num = re.sub(r"[^\d]", "", price_raw) or "0"
+
         hab = 0
         ban = 0
         metros = 0
@@ -88,11 +139,24 @@ def scrape_idealista_page(base_url: str, page: int = 1) -> list:
             m_hab = re.search(r"(\d+)\s*habs?", txt, re.I)
             m_ban = re.search(r"(\d+)\s*ban", txt, re.I)
             m_m2 = re.search(r"(\d+)\s*m", txt, re.I)
-            if m_hab: hab = int(m_hab.group(1))
-            if m_ban: ban = int(m_ban.group(1))
-            if m_m2: metros = int(m_m2.group(1))
+            if m_hab:
+                hab = int(m_hab.group(1))
+            if m_ban:
+                ban = int(m_ban.group(1))
+            if m_m2:
+                metros = int(m_m2.group(1))
+
         location = location_el.get_text(" ", strip=True) if location_el else ""
         fecha_pub = date_el.get_text(strip=True) if date_el else None
+
+        # NUEVO: obtener telefono y email de la ficha
+        contact = {"telefono": None, "email": None}
+        if url_abs:
+            try:
+                contact = scrape_contact_data(url_abs)
+            except Exception as e:
+                logger.error(f"Error obteniendo contacto {url_abs}: {e}")
+
         listings.append({
             "id": prop_id,
             "titulo": title_el.get_text(strip=True) if title_el else "",
@@ -104,7 +168,10 @@ def scrape_idealista_page(base_url: str, page: int = 1) -> list:
             "tipo_vendedor": seller_type,
             "fecha_publicacion": fecha_pub,
             "url": url_abs,
+            "telefono": contact.get("telefono"),
+            "email": contact.get("email"),
         })
+
     listings = [l for l in listings if l["tipo_vendedor"].lower() == "particular"]
     logger.info(f"Encontradas {len(listings)} propiedades particulares en pagina {page}")
     return listings
@@ -137,15 +204,19 @@ def get_particulares(city='madrid'):
         city = request.args.get('city', city).lower()
         base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
         city_name = city.capitalize()
+
         page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 10))
         habitaciones = request.args.get('habitaciones')
         pages_to_scrape = int(request.args.get('pages_to_scrape', 1))
+
         data = fetch_realista_data(base_url, pages=pages_to_scrape)
+
         # Filtros opcionales
         min_price = int(request.args.get('min_price', 0))
         max_price = int(request.args.get('max_price', 10000000))
         location = request.args.get('location', '').lower()
+
         filtered = data
         if min_price > 0:
             filtered = [p for p in filtered if int(p['precio']) >= min_price]
@@ -156,10 +227,12 @@ def get_particulares(city='madrid'):
         if habitaciones:
             hab = int(habitaciones)
             filtered = [p for p in filtered if p['habitaciones'] == hab]
+
         total = len(filtered)
         start = (page - 1) * limit
         end = start + limit
         results = filtered[start:end]
+
         return jsonify({
             'success': True,
             'timestamp': datetime.now().isoformat(),
@@ -174,6 +247,7 @@ def get_particulares(city='madrid'):
             'data': results,
             'count': len(results)
         }), 200
+
     except Exception as e:
         logger.error(f"Error en endpoint: {e}")
         return jsonify({
