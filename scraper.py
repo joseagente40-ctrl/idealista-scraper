@@ -9,7 +9,7 @@ class IdealitaScraper:
     
     async def scrape_idealista(self, ciudad: str, tipo_propiedad: str = "venta", max_resultados: int = 10) -> List[Dict]:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=TruTrue,
+            browser = await p.chromium.launch(headless=True,
                     args=[
                         '--disable-blink-features=AutomationControlled',
                         '--no-sandbox',
