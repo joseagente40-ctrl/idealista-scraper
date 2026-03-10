@@ -4,6 +4,7 @@
 SERVIDOR IDEALISTA PARA N8N
 Endpoint HTTP para scraping de particulares en toda España
 Compatible con N8N HTTP Request Node
+Usa ScraperAPI para evitar bloqueos de Idealista
 """
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -23,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
+
+# ScraperAPI key
+SCRAPER_API_KEY = os.environ.get('SCRAPER_API_KEY', '7976a485c58e38d0a3e1a41fe59c7da6')
+
+def build_scraperapi_url(target_url):
+    """Construye URL usando ScraperAPI para evitar bloqueos"""
+    encoded = urllib.parse.quote(target_url)
+    return f"http://api.scraperapi.com/?api_key={SCRAPER_API_KEY}&url={encoded}&render=true&country_code=es"
 
 # Diccionario de ciudades disponibles para scraping
 CIUDADES_ESPANA = {
@@ -46,21 +55,24 @@ HEADERS = {
     'Connection': 'keep-alive',
 }
 
+def fetch_url(target_url, timeout=60):
+    """Descarga una URL usando ScraperAPI"""
+    scraperapi_url = build_scraperapi_url(target_url)
+    req = urllib.request.Request(scraperapi_url, headers=HEADERS)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="ignore")
+
 def scrape_contact_data(property_url: str) -> dict:
     """
-    Extrae telefono y email de la ficha del inmueble.
-    OJO: los selectores son orientativos, deberás ajustarlos a Idealista real.
+    Extrae telefono y email de la ficha del inmueble via ScraperAPI.
     """
     try:
-        req = urllib.request.Request(property_url, headers=HEADERS)
-        with urllib.request.urlopen(req, timeout=25) as resp:
-            html = resp.read().decode("utf-8", errors="ignore")
+        html = fetch_url(property_url, timeout=60)
     except Exception as e:
         logger.error(f"Error descargando detalle {property_url}: {e}")
         return {"telefono": None, "email": None}
 
     soup = BeautifulSoup(html, "html.parser")
-
     telefono = None
     email = None
 
@@ -84,7 +96,10 @@ def scrape_contact_data(property_url: str) -> dict:
     if not email:
         email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", html)
         if email_match:
-            email = email_match.group(0)
+            candidate = email_match.group(0)
+            # Filtrar emails de sistema/dominio de idealista
+            if 'idealista' not in candidate.lower() and 'sentry' not in candidate.lower():
+                email = candidate
 
     return {"telefono": telefono, "email": email}
 
@@ -95,18 +110,21 @@ def build_search_url(base_url: str, page: int = 1) -> str:
     return f"{base_url}pagina-{page}.htm"
 
 def scrape_idealista_page(base_url: str, page: int = 1) -> list:
-    """Extrae listados de una pagina de Idealista"""
+    """Extrae listados de una pagina de Idealista via ScraperAPI"""
     search_url = build_search_url(base_url, page)
-    req = urllib.request.Request(search_url, headers=HEADERS)
-    with urllib.request.urlopen(req, timeout=25) as resp:
-        html = resp.read().decode("utf-8", errors="ignore")
+    logger.info(f"Scrapeando via ScraperAPI: {search_url}")
+
+    try:
+        html = fetch_url(search_url, timeout=60)
+    except Exception as e:
+        logger.error(f"Error descargando pagina {search_url}: {e}")
+        return []
 
     soup = BeautifulSoup(html, "html.parser")
     listings = []
 
     for article in soup.find_all("article", class_="item"):
         seller_type = "Particular"
-
         extra_info = article.select_one(".item-extra-info, .item-subtitle")
         if extra_info:
             extra_text = extra_info.get_text(strip=True)
@@ -139,17 +157,14 @@ def scrape_idealista_page(base_url: str, page: int = 1) -> list:
             m_hab = re.search(r"(\d+)\s*habs?", txt, re.I)
             m_ban = re.search(r"(\d+)\s*ban", txt, re.I)
             m_m2 = re.search(r"(\d+)\s*m", txt, re.I)
-            if m_hab:
-                hab = int(m_hab.group(1))
-            if m_ban:
-                ban = int(m_ban.group(1))
-            if m_m2:
-                metros = int(m_m2.group(1))
+            if m_hab: hab = int(m_hab.group(1))
+            if m_ban: ban = int(m_ban.group(1))
+            if m_m2: metros = int(m_m2.group(1))
 
         location = location_el.get_text(" ", strip=True) if location_el else ""
         fecha_pub = date_el.get_text(strip=True) if date_el else None
 
-        # NUEVO: obtener telefono y email de la ficha
+        # Obtener telefono y email de la ficha via ScraperAPI
         contact = {"telefono": None, "email": None}
         if url_abs:
             try:
@@ -196,15 +211,13 @@ def health_check():
     }), 200
 
 @app.route('/api/idealista/espana/particulares', methods=['GET'])
-@app.route('/api/idealista/madrid/particulares', methods=['GET'])  # Alias para compatibilidad
-@app.route('/api/idealista/<city>/particulares', methods=['GET'])  # Endpoint dinamico
+@app.route('/api/idealista/madrid/particulares', methods=['GET'])
+@app.route('/api/idealista/<city>/particulares', methods=['GET'])
 def get_particulares(city='madrid'):
     try:
-        # Obtener ciudad: primero del query param, luego del path param
         city = request.args.get('city', city).lower()
         base_url = CIUDADES_ESPANA.get(city, CIUDADES_ESPANA['madrid'])
         city_name = city.capitalize()
-
         page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 10))
         habitaciones = request.args.get('habitaciones')
@@ -212,7 +225,6 @@ def get_particulares(city='madrid'):
 
         data = fetch_realista_data(base_url, pages=pages_to_scrape)
 
-        # Filtros opcionales
         min_price = int(request.args.get('min_price', 0))
         max_price = int(request.args.get('max_price', 10000000))
         location = request.args.get('location', '').lower()
